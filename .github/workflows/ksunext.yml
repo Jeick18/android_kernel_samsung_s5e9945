@@ -1,4 +1,4 @@
-name: Compilar Kernel S5E9945 (KSUNext + susfs + Neutron Clang)
+name: Compilar Kernel S5E9945 (KSU-Next + Fix de Samsung)
 
 on:
   workflow_dispatch:
@@ -18,36 +18,25 @@ jobs:
       with:
         path: kernel_workspace
         
-    - name: Descargar Toolchain Moderno (Neutron Clang)
+    - name: Descargar Toolchain (Proton Clang)
       run: |
-        # Descargamos Neutron Clang, que es público y muy actualizado
-        git clone --depth=1 https://github.com/Neutron-Toolchains/clang.git toolchain
+        # Volvemos a Proton Clang que es público y estable
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
 
-    - name: Inyectar KernelSU-Next y Parches susfs
+    - name: Inyectar KernelSU-Next
       run: |
         cd kernel_workspace
-        
-        # 1. Inyectar KernelSU-Next
         curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -
-        
-        # 2. Descargar repositorio oficial de susfs
-        cd ..
-        git clone https://gitlab.com/simonpunk/susfs4ksu.git susfs
-        cd kernel_workspace
-        
-        # 3. Copiar archivos clave de susfs
-        cp ../susfs/kernel_patches/fs/susfs.c fs/
-        cp ../susfs/kernel_patches/include/linux/susfs.h include/linux/
-        
-        # 4. Parchear KernelSU-Next
-        patch -p1 < ../susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
 
     - name: Compilar el Kernel
       run: |
         cd kernel_workspace
         export ARCH=arm64
         export SUBARCH=arm64
+        
+        # EL FIX CLAVE PARA LOS KERNELS DE SAMSUNG:
         export TARGET_SOC="s5e9945"
+        
         export PATH=$GITHUB_WORKSPACE/toolchain/bin:$PATH
         
         # 1. Generar la configuración
@@ -65,5 +54,5 @@ jobs:
     - name: Subir el Kernel compilado (Image)
       uses: actions/upload-artifact@v4
       with:
-        name: Kernel-Compilado-KSUNext-susfs
+        name: Kernel-Compilado-KSUNext
         path: kernel_workspace/out/arch/arm64/boot/Image
