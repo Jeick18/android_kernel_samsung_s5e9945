@@ -1,4 +1,4 @@
-name: Compilar Kernel S5E9945 (KSU-Next + susfs)
+name: Compilar Kernel S5E9945 (KSUNext + susfs + Fix)
 
 on:
   workflow_dispatch:
@@ -18,9 +18,9 @@ jobs:
       with:
         path: kernel_workspace
         
-    - name: Descargar Toolchain (Proton Clang)
+    - name: Descargar Toolchain Moderno (ZyC-Clang)
       run: |
-        git clone --depth=1 https://github.com/kdrag0n/proton-clang toolchain
+        git clone --depth=1 https://gitlab.com/zyc_project/zyc_clang.git toolchain
 
     - name: Inyectar KernelSU-Next y Parches susfs
       run: |
@@ -40,21 +40,19 @@ jobs:
         
         # 4. Parchear KernelSU-Next para habilitar soporte susfs
         patch -p1 < ../susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
-        
-        # Nota: La integración completa de susfs a veces requiere parchear archivos core de Linux (como dcache.c). 
-        # Si la compilación falla más adelante por temas de VFS, se deberán aplicar los parches específicos de susfs manualmente.
 
     - name: Compilar el Kernel
       run: |
         cd kernel_workspace
         export ARCH=arm64
         export SUBARCH=arm64
+        export TARGET_SOC="s5e9945"
         export PATH=$GITHUB_WORKSPACE/toolchain/bin:$PATH
         
-        # Generar la configuración
+        # 1. Generar la configuración
         make O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 s5e9945_gki_defconfig
         
-        # Iniciar compilación
+        # 2. Iniciar compilación
         make -j$(nproc) O=out \
                       ARCH=arm64 \
                       CC=clang \
