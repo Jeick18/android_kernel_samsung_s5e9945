@@ -1,4 +1,4 @@
-name: Compilar Kernel Samsung S5E9945 (Exynos 2400e + KernelSU)
+name: Compilar Kernel S5E9945 (KSU-Next + susfs + Fix)
 
 on:
   workflow_dispatch:
@@ -20,21 +20,43 @@ jobs:
         
     - name: Descargar Toolchain (Proton Clang)
       run: |
-        git clone --depth=1 https://github.com/kdrag0n/proton-clang toolchain
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
 
-    - name: Inyectar KernelSU (Última versión) en el código
+    - name: Inyectar KernelSU-Next y Parches susfs
       run: |
         cd kernel_workspace
-        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
         
+        # 1. Inyectar KernelSU-Next
+        curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -
+        
+        # 2. Descargar repositorio oficial de susfs
+        cd ..
+        git clone https://gitlab.com/simonpunk/susfs4ksu.git susfs
+        cd kernel_workspace
+        
+        # 3. Copiar archivos clave de susfs al código fuente de tu kernel
+        cp ../susfs/kernel_patches/fs/susfs.c fs/
+        cp ../susfs/kernel_patches/include/linux/susfs.h include/linux/
+        
+        # 4. Parchear KernelSU-Next para habilitar soporte susfs
+        patch -p1 < ../susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
+        
+        # 5. Parchear el Kernel base (VFS, dcache, etc.)
+        # Nota: Usamos --no-backup-if-mismatch para mantener limpio el árbol si falla
+        patch -p1 < ../susfs/kernel_patches/51_ksu_susfs_in_kernel-6.1.patch || echo "Advertencia: Algunos parches del kernel base fallaron. Revisa los archivos .rej"
+
     - name: Compilar el Kernel
       run: |
         cd kernel_workspace
         export ARCH=arm64
         export SUBARCH=arm64
+        
+        # EL FIX CLAVE PARA LOS KERNELS DE SAMSUNG (Evita el error de ipc_chub.h):
+        export TARGET_SOC="s5e9945"
+        
         export PATH=$GITHUB_WORKSPACE/toolchain/bin:$PATH
         
-        # 1. Generar la configuración (Ahora con las variables de Clang y LLVM)
+        # 1. Generar la configuración
         make O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 s5e9945_gki_defconfig
         
         # 2. Iniciar compilación
@@ -49,5 +71,5 @@ jobs:
     - name: Subir el Kernel compilado (Image)
       uses: actions/upload-artifact@v4
       with:
-        name: Kernel-Compilado-KSU
+        name: Kernel-Compilado-KSUNext-susfs
         path: kernel_workspace/out/arch/arm64/boot/Image
