@@ -1,4 +1,4 @@
-name: Compilar Kernel S5E9945 (KSUNext + susfs + Fix)
+name: Compilar Kernel S5E9945 (KSUNext + susfs + Neutron Clang)
 
 on:
   workflow_dispatch:
@@ -18,9 +18,10 @@ jobs:
       with:
         path: kernel_workspace
         
-    - name: Descargar Toolchain Moderno (ZyC-Clang)
+    - name: Descargar Toolchain Moderno (Neutron Clang)
       run: |
-        git clone --depth=1 https://gitlab.com/zyc_project/zyc_clang.git toolchain
+        # Descargamos Neutron Clang, que es público y muy actualizado
+        git clone --depth=1 https://github.com/Neutron-Toolchains/clang.git toolchain
 
     - name: Inyectar KernelSU-Next y Parches susfs
       run: |
@@ -34,11 +35,11 @@ jobs:
         git clone https://gitlab.com/simonpunk/susfs4ksu.git susfs
         cd kernel_workspace
         
-        # 3. Copiar archivos clave de susfs al código fuente de tu kernel
+        # 3. Copiar archivos clave de susfs
         cp ../susfs/kernel_patches/fs/susfs.c fs/
         cp ../susfs/kernel_patches/include/linux/susfs.h include/linux/
         
-        # 4. Parchear KernelSU-Next para habilitar soporte susfs
+        # 4. Parchear KernelSU-Next
         patch -p1 < ../susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
 
     - name: Compilar el Kernel
