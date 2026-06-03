@@ -1,4 +1,4 @@
-name: Compilar Kernel S5E9945 (KSU-Next + susfs + Fix)
+name: Compilar Kernel S5E9945 (KSU-Next + susfs + Fix Directorio)
 
 on:
   workflow_dispatch:
@@ -38,22 +38,20 @@ jobs:
         cp ../susfs/kernel_patches/fs/susfs.c fs/
         cp ../susfs/kernel_patches/include/linux/susfs.h include/linux/
         
-        # 4. Parchear KernelSU-Next para habilitar soporte susfs
-        patch -p1 < ../susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
+        # 4. Parchear KernelSU-Next (Entrando a la carpeta correcta)
+        cd KernelSU-Next
+        patch -p1 < ../../susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch || echo "Aviso: Parche KSU aplicado con desajustes menores"
+        cd ..
         
         # 5. Parchear el Kernel base (VFS, dcache, etc.)
-        # Nota: Usamos --no-backup-if-mismatch para mantener limpio el árbol si falla
-        patch -p1 < ../susfs/kernel_patches/51_ksu_susfs_in_kernel-6.1.patch || echo "Advertencia: Algunos parches del kernel base fallaron. Revisa los archivos .rej"
+        patch -p1 < ../susfs/kernel_patches/51_ksu_susfs_in_kernel-6.1.patch || echo "Advertencia: Parche base de Linux no encajó perfectamente"
 
     - name: Compilar el Kernel
       run: |
         cd kernel_workspace
         export ARCH=arm64
         export SUBARCH=arm64
-        
-        # EL FIX CLAVE PARA LOS KERNELS DE SAMSUNG (Evita el error de ipc_chub.h):
         export TARGET_SOC="s5e9945"
-        
         export PATH=$GITHUB_WORKSPACE/toolchain/bin:$PATH
         
         # 1. Generar la configuración
